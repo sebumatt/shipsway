@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e1317">
+<title>Ferry Reality Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{--hull:#0e1317;--panel:#161e24;--panel2:#1c262d;--line:#2a363f;--ink:#e7edf0;--mute:#93a4ae;--signal:#ffb547;--sky:#8fc7e8;--good:#6fcf97;--bad:#ff7a66;
+--display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;--body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--hull);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+.app{max-width:640px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 14px) max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 28px) max(14px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--signal)}
+h1{font-family:var(--display);font-size:34px;line-height:1;margin:4px 0 0}
+p{margin:0}
+.mute{color:var(--mute)}
+.view{position:relative;width:100%;aspect-ratio:3/4;max-height:68vh;border-radius:14px;overflow:hidden;background:#0a0e11;border:1px solid var(--line)}
+.view video,.view canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.start{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center;background:rgba(10,14,17,.86)}
+.start[hidden]{display:none}
+.btn{font:600 16px/1 var(--body);color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:12px 18px;cursor:pointer}
+.btn.primary{background:var(--signal);border-color:var(--signal);color:#1a1205}
+.btn:focus-visible,.seg button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex-wrap:wrap}
+.seg button{font:500 14px/1.2 var(--body);color:var(--mute);background:transparent;border:0;padding:9px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--ink);box-shadow:inset 0 -2px 0 var(--signal)}
+.label{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.status{font-family:var(--mono);font-size:12px;color:var(--mute)}
+.status b{color:var(--signal);font-weight:500}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-variant-numeric:tabular-nums}
+th,td{padding:10px 10px;text-align:left;border-top:1px solid var(--line);font-size:14px}
+thead th{border-top:0;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);font-weight:500}
+td.n{font-family:var(--mono);text-align:right;white-space:nowrap}
+.pill{font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill.good{color:var(--good)}.pill.mid{color:var(--signal)}.pill.bad{color:var(--bad)}.pill.wait{color:var(--mute)}
+.verdict{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.verdict .big{font-family:var(--display);font-size:26px;font-weight:700;line-height:1.05}
+ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;color:var(--mute)}
+ol b{color:var(--ink);font-weight:600}
+textarea{width:100%;min-height:90px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font:12px/1.4 var(--mono)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="eyebrow">Tallinn → Helsinki · 14 Nov · on board</div>
+    <h1>Ferry Reality Check</h1>
+    <p class="mute">Compares the ship's real motion, measured by this phone, with this morning's forecast. <a href="simulator.html" style="color:var(--signal)">Open the 3D simulator</a></p>
+  </header>
+
+  <div class="view" id="view">
+    <video id="vid" playsinline muted autoplay></video>
+    <canvas id="cv"></canvas>
+    <div class="start" id="start">
+      <p><b>Point the camera out a window at the horizon.</b><br><span class="mute">Amber lines show the forecast range. If the real horizon stays between them, the forecast was right.</span></p>
+      <button class="btn primary" id="goCam" type="button">Start with camera</button>
+      <button class="btn" id="goNoCam" type="button">Sensors only (phone on a table)</button>
+      <p class="status" id="err"></p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="seg" role="group" aria-label="Stretch of the crossing" id="legSeg"></div>
+  </div>
+  <div class="row">
+    <div class="seg" role="group" aria-label="Seat">
+      <button type="button" id="sMid" aria-pressed="true">Middle of ship</button>
+      <button type="button" id="sBow" aria-pressed="false">Front of ship</button>
+    </div>
+    <button class="btn" id="reset" type="button">Restart measuring</button>
+  </div>
+  <p class="status" id="stat">Not started.</p>
+
+  <div class="verdict">
+    <span class="label">Verdict so far</span>
+    <div class="big" id="vBig">Waiting for data</div>
+    <p class="mute" id="vTxt">For a fair number, rest the phone against the window frame or lay it flat on a table for 3 minutes.</p>
+  </div>
+
+  <table>
+    <thead><tr><th>Motion</th><th style="text-align:right">Forecast</th><th style="text-align:right">Measured</th><th></th></tr></thead>
+    <tbody id="tb"></tbody>
+  </table>
+
+  <div class="row">
+    <button class="btn" id="save" type="button">Save log (CSV)</button>
+    <button class="btn" id="copy" type="button">Copy summary</button>
+  </div>
+  <textarea id="sum" readonly aria-label="Summary to send"></textarea>
+
+  <section>
+    <span class="label">How to get a good reading</span>
+    <ol>
+      <li><b>Hold still against something fixed to the ship</b>: rest the phone's edge on the window sill or frame, or lay it flat on a table. Holding it in the air adds your own hand movement.</li>
+      <li>Give it at least <b>3 minutes</b> per stretch. The sway is slow (about 14 s), so short samples mislead.</li>
+      <li>Pick the stretch you're on (it switches automatically by the clock), then press <b>Copy summary</b> and send it to me.</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+/* ---- forecast (Open-Meteo, pulled 14 Nov 2026) and the same motion model as the simulator */
+const HEADING=5;
+const LEGS={
+  tallinn:{name:'Tallinn bay',from:13.5,to:14,Hs:1.3,T:6.1,dir:288,wind:12.0},
+  gulf:{name:'Open gulf',from:14,to:15,Hs:2.0,T:5.4,dir:281,wind:13.3},
+  helsinki:{name:'Helsinki approach',from:15,to:16,Hs:1.1,T:3.9,dir:284,wind:10.3}
+};
+function Phi(z){const t=1/(1+0.2316419*Math.abs(z));const d=0.3989423*Math.exp(-z*z/2);const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p;}
+function MSI(a,f,mins){const lf=Math.log10(f);const za=2.128*Math.log10(Math.max(a,1e-4))-9.277*lf-5.809*lf*lf-1.851;const zt=1.134*za+1.989*Math.log10(mins)-2.904;return 100*Phi(za)*Phi(zt);}
+function model(s,st){
+  const beta=(((s.dir-HEADING+540)%360)-180)*Math.PI/180;
+  const sb=Math.abs(Math.sin(beta)),cb=Math.abs(Math.cos(beta));
+  const roll=0.9*s.Hs*(0.35+0.65*sb)*Math.pow(s.T/5.4,1.2);
+  const pitch=0.22*s.Hs*(0.3+0.7*cb)*Math.pow(s.T/5.4,1.5);
+  const w=2*Math.PI/s.T;
+  const avMid=0.02*s.Hs*(0.5+0.5*cb)*Math.sqrt(5.4/s.T);
+  const av=st==='bow'?avMid+70*(pitch*Math.PI/180)*w*w/9.81:avMid;
+  const lat=Math.sin(roll*0.7*Math.PI/180)*(st==='bow'?1.3:1);
+  const queasy=Math.max(1,Math.min(85,Math.round(2+2.2*MSI(Math.sqrt(av*av+Math.pow(0.5*lat,2)),1/s.T,120))));
+  return {roll,rollMax:roll*1.9,pitch,period:14,av,queasy};
+}
+let leg='gulf',seat='mid';
+(function(){const h=new Date().getHours()+new Date().getMinutes()/60;for(const k in LEGS){if(h>=LEGS[k].from&&h<LEGS[k].to)leg=k;}})();
+Object.keys(LEGS).forEach(k=>{const b=document.createElement('button');b.type='button';b.dataset.k=k;b.textContent=LEGS[k].name;b.addEventListener('click',()=>{leg=k;ui();});$('legSeg').appendChild(b);});
+$('sMid').addEventListener('click',()=>{seat='mid';ui();});
+$('sBow').addEventListener('click',()=>{seat='bow';ui();});
+function ui(){document.querySelectorAll('#legSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.k===leg));$('sMid').setAttribute('aria-pressed',seat==='mid');$('sBow').setAttribute('aria-pressed',seat==='bow');P=model(LEGS[leg],seat);}
+let P;ui();
+
+/* ---- sensors */
+let started=false,useCam=false,t0=0;
+const LOG=[];            // [t, ux, uy, uz, |a|]
+let g=null,gs=null;      // low-passed "up" vector (device frame), slow mean
+let amag=9.81,amean=9.81;
+function onMotion(e){
+  const a=e.accelerationIncludingGravity;if(!a||a.x==null)return;
+  const t=performance.now()/1000;
+  const v=[a.x,a.y,a.z];const m=Math.hypot(v[0],v[1],v[2])||9.81;
+  // iOS reports the opposite sign convention
+  const s=/iPhone|iPad|iPod/.test(navigator.userAgent)?-1:1;
+  const u=[s*v[0]/m,s*v[1]/m,s*v[2]/m];
+  if(!g){g=u.slice();gs=u.slice();}
+  const k=0.12,ks=0.004;
+  for(let i=0;i<3;i++){g[i]+=k*(u[i]-g[i]);gs[i]+=ks*(u[i]-gs[i]);}
+  amag+=0.25*(m-amag);amean+=0.002*(m-amean);
+  LOG.push([t-t0,g[0],g[1],g[2],amag]);
+  if(LOG.length>60*60*30)LOG.shift();
+}
+async function start(cam){
+  $('err').textContent='';
+  try{
+    if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+      const r=await DeviceMotionEvent.requestPermission();if(r!=='granted')throw new Error('Motion sensor access was declined. Allow it in your browser settings and reload.');
+    }
+  }catch(e){$('err').textContent=e.message||String(e);return;}
+  window.addEventListener('devicemotion',onMotion);
+  if(cam){
+    try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});$('vid').srcObject=st;useCam=true;}
+    catch(e){$('err').textContent='Camera not available, using sensors only.';useCam=false;}
+  }
+  try{if(navigator.wakeLock)await navigator.wakeLock.request('screen');}catch(e){}
+  t0=performance.now()/1000;started=true;$('start').hidden=true;
+  setTimeout(()=>{if(!LOG.length){$('stat').innerHTML='<b>No motion data.</b> This browser is not sending sensor readings. Try Chrome on Android or Safari on iPhone, opened from the https link.';}},3000);
+}
+$('goCam').addEventListener('click',()=>start(true));
+$('goNoCam').addEventListener('click',()=>start(false));
+$('reset').addEventListener('click',()=>{LOG.length=0;t0=performance.now()/1000;});
+
+/* ---- analysis over the last 3 minutes */
+const WIN=180;
+function analyse(){
+  if(LOG.length<50)return null;
+  const tEnd=LOG[LOG.length-1][0];const rows=LOG.filter(r=>r[0]>tEnd-WIN);
+  const n=rows.length;let m=[0,0,0];rows.forEach(r=>{m[0]+=r[1];m[1]+=r[2];m[2]+=r[3];});
+  const ml=Math.hypot(m[0],m[1],m[2]);m=m.map(x=>x/ml);
+  // two axes perpendicular to the mean "up"
+  let e1=Math.abs(m[0])<0.9?[1,0,0]:[0,1,0];
+  const d=e1[0]*m[0]+e1[1]*m[1]+e1[2]*m[2];e1=[e1[0]-d*m[0],e1[1]-d*m[1],e1[2]-d*m[2]];const l1=Math.hypot(...e1);e1=e1.map(x=>x/l1);
+  const e2=[m[1]*e1[2]-m[2]*e1[1],m[2]*e1[0]-m[0]*e1[2],m[0]*e1[1]-m[1]*e1[0]];
+  const A=rows.map(r=>[Math.asin(r[1]*e1[0]+r[2]*e1[1]+r[3]*e1[2])*57.2958,Math.asin(r[1]*e2[0]+r[2]*e2[1]+r[3]*e2[2])*57.2958]);
+  let sxx=0,syy=0,sxy=0;A.forEach(a=>{sxx+=a[0]*a[0];syy+=a[1]*a[1];sxy+=a[0]*a[1];});sxx/=n;syy/=n;sxy/=n;
+  const th=0.5*Math.atan2(2*sxy,sxx-syy);const c=Math.cos(th),s=Math.sin(th);
+  const major=A.map(a=>a[0]*c+a[1]*s),minor=A.map(a=>-a[0]*s+a[1]*c);
+  const rms=arr=>Math.sqrt(arr.reduce((q,x)=>q+x*x,0)/arr.length);
+  const rollSig=2*rms(major),pitchSig=2*rms(minor);
+  const rollMax=Math.max(...major.map(Math.abs));
+  // sway period from zero crossings of the smoothed lean
+  let crosses=0,sm=0,prev=0;major.forEach((x,i)=>{sm+=0.08*(x-sm);if(i>20&&Math.sign(sm)!==Math.sign(prev)&&Math.abs(sm)>0.05)crosses++;prev=sm;});
+  const dur=rows[n-1][0]-rows[0][0];
+  const period=crosses>1?2*dur/crosses:null;
+  const am=rows.reduce((q,r)=>q+r[4],0)/n;const av=Math.sqrt(rows.reduce((q,r)=>q+(r[4]-am)*(r[4]-am),0)/n)/9.81;
+  return {dur,rollSig,rollMax,pitchSig,period,av};
+}
+function judge(f,m){if(m==null||!isFinite(m))return ['wait','—'];const r=m/f;if(r>0.67&&r<1.5)return ['good','close'];if(r>0.4&&r<2.5)return ['mid',r>1?'bit more':'bit less'];return ['bad',r>1?'much more':'much less'];}
+let R=null;
+function table(){
+  R=analyse();
+  const rows=[
+    ['Side-to-side lean (±°)',P.roll.toFixed(1)+'°',R&&R.rollSig],
+    ['Biggest lean (°)',P.rollMax.toFixed(1)+'°',R&&R.rollMax],
+    ['One full sway (s)',P.period+' s',R&&R.period],
+    ['Nose up/down (±°)',P.pitch.toFixed(2)+'°',R&&R.pitchSig],
+    ['Up-down bump (g)',P.av.toFixed(3),R&&R.av]
+  ];
+  const fv=[P.roll,P.rollMax,P.period,P.pitch,P.av];
+  let goods=0,known=0;
+  $('tb').innerHTML=rows.map((r,i)=>{const enough=R&&R.dur>60;const m=enough?r[2]:null;const j=judge(fv[i],m);if(j[0]!=='wait'){known++;if(j[0]==='good')goods++;}
+    const fmt=m==null||!isFinite(m)?'…':(i===4?m.toFixed(3):i===3?m.toFixed(2)+'°':i===2?m.toFixed(0)+' s':m.toFixed(1)+'°');
+    return '<tr><td>'+r[0]+'</td><td class="n">'+r[1]+'</td><td class="n">'+fmt+'</td><td><span class="pill '+j[0]+'">'+j[1]+'</span></td></tr>';}).join('');
+  if(!started){return;}
+  const dur=R?R.dur:0;
+  $('stat').innerHTML='Measuring <b>'+LEGS[leg].name+'</b> · '+Math.floor(dur/60)+':'+String(Math.floor(dur%60)).padStart(2,'0')+' of 3:00'+(useCam?' · camera on':'')+' · '+LOG.length+' readings';
+  if(!R||dur<60){$('vBig').textContent='Measuring… keep the phone still';}
+  else{
+    const ratio=R.rollSig/P.roll;
+    $('vBig').textContent=ratio>0.67&&ratio<1.5?'The forecast is about right':ratio>=1.5?'Rougher than forecast':'Calmer than forecast';
+    $('vTxt').textContent='Measured lean ±'+R.rollSig.toFixed(1)+'° against a forecast of ±'+P.roll.toFixed(1)+'°. '+(dur<170?'Still settling; give it the full 3 minutes. ':'')+'If you were holding the phone in your hand, the measured numbers will read high.';
+  }
+  const txt='Ferry check '+new Date().toLocaleString()+' | stretch: '+LEGS[leg].name+' | seat: '+seat+(R?' | sample '+Math.round(R.dur)+' s | lean ±'+R.rollSig.toFixed(2)+'° (fc ±'+P.roll.toFixed(2)+') | max '+R.rollMax.toFixed(2)+'° (fc '+P.rollMax.toFixed(1)+') | period '+(R.period?R.period.toFixed(1):'?')+' s (fc 14) | pitch ±'+R.pitchSig.toFixed(2)+'° (fc ±'+P.pitch.toFixed(2)+') | bump '+R.av.toFixed(3)+' g (fc '+P.av.toFixed(3)+')':' | no data yet');
+  $('sum').value=txt;
+}
+setInterval(table,1000);table();
+$('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('sum').value);$('copy').textContent='Copied';}catch(e){$('sum').select();$('copy').textContent='Select and copy the text below';}setTimeout(()=>$('copy').textContent='Copy summary',2500);});
+$('save').addEventListener('click',()=>{
+  const csv='t_s,up_x,up_y,up_z,accel_ms2\n'+LOG.map(r=>r.map((x,i)=>i===0?x.toFixed(3):x.toFixed(5)).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ferry-motion-'+leg+'-'+Date.now()+'.csv';document.body.appendChild(a);a.click();a.remove();
+});
+
+/* ---- AR overlay */
+const cv=$('cv'),ctx=cv.getContext('2d');let W=1,H=1,dpr=1;
+function resize(){const r=cv.getBoundingClientRect();dpr=Math.min(2,devicePixelRatio||1);W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;}
+new ResizeObserver(resize).observe(cv);resize();
+let meanTilt=null;
+function screenUp(u){
+  const ang=((screen.orientation&&screen.orientation.angle)||window.orientation||0)*Math.PI/180;
+  const x=u[0]*Math.cos(ang)+u[1]*Math.sin(ang),y=-u[0]*Math.sin(ang)+u[1]*Math.cos(ang);
+  return [x,y,u[2]];
+}
+function draw(){
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  if(!useCam){ctx.fillStyle='#0a0e11';ctx.fillRect(0,0,W,H);}
+  if(g){
+    const u=screenUp(g);
+    const tilt=Math.atan2(u[0],u[1]);                 // screen-plane tilt, rad
+    const elev=Math.asin(Math.max(-1,Math.min(1,-u[2])));// camera axis above horizon
+    if(meanTilt==null)meanTilt=tilt;meanTilt+=0.01*(tilt-meanTilt);
+    const f=(H/2)/Math.tan(32*Math.PI/180);
+    const cx=W/2,cy=H/2+f*Math.tan(elev);
+    const L=Math.hypot(W,H);
+    const line=(ang,col,w,dash)=>{ctx.save();ctx.translate(cx,cy);ctx.rotate(ang);ctx.strokeStyle=col;ctx.lineWidth=w;ctx.setLineDash(dash||[]);ctx.beginPath();ctx.moveTo(-L,0);ctx.lineTo(L,0);ctx.stroke();ctx.restore();};
+    const sig=P.roll*Math.PI/180,mx=P.rollMax*Math.PI/180;
+    // forecast wedge, fixed to the ship (phone), around the average horizon
+    ctx.save();ctx.translate(cx,cy);ctx.fillStyle='rgba(255,181,71,.13)';
+    ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,L,meanTilt-sig,meanTilt+sig);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,L,Math.PI+meanTilt-sig,Math.PI+meanTilt+sig);ctx.closePath();ctx.fill();ctx.restore();
+    line(meanTilt+mx,'rgba(255,181,71,.45)',1.5,[4,6]);line(meanTilt-mx,'rgba(255,181,71,.45)',1.5,[4,6]);
+    line(meanTilt+sig,'rgba(255,181,71,.95)',2,[10,6]);line(meanTilt-sig,'rgba(255,181,71,.95)',2,[10,6]);
+    // measured horizon from gravity
+    line(tilt,'#ffffff',2.5);
+    const dev=(tilt-meanTilt)*57.2958;
+    ctx.fillStyle='rgba(10,14,17,.72)';ctx.fillRect(10,10,186,58);
+    ctx.font='600 12px "JetBrains Mono",monospace';ctx.fillStyle='#fff';ctx.fillText('NOW  '+(dev>=0?'+':'')+dev.toFixed(1)+'°',20,30);
+    ctx.fillStyle='#ffb547';ctx.fillText('FORECAST ±'+P.roll.toFixed(1)+'° (max '+P.rollMax.toFixed(1)+')',20,52);
+  }else if(started){
+    ctx.fillStyle='#e7edf0';ctx.font='14px Barlow,system-ui';ctx.textAlign='center';ctx.fillText('Waiting for motion sensor…',W/2,H/2);ctx.textAlign='left';
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

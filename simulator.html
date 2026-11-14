@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>html,body{margin:0}[hidden]{display:none!important}*{box-sizing:border-box}img{max-width:100%}</style></head><body>
+<title>Feel the Crossing</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one column, ship's-lounge window on top, the "bridge panel" of readouts below. Single dark look on purpose: a grey November Baltic seen from inside. */
+:root{
+  --hull:#0e1317;
+  --panel:#161e24;
+  --panel-2:#1c262d;
+  --line:#2a363f;
+  --ink:#e7edf0;
+  --mute:#93a4ae;
+  --signal:#ffb547;
+  --good:#6fcf97;
+  --warn:#ffb547;
+  --bad:#ff7a66;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--hull);color:var(--ink)}
+body{font-family:var(--body);font-size:16px;line-height:1.5}
+.app{max-width:980px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-direction:column;gap:6px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--signal)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,6vw,46px);line-height:1.02;margin:0;text-wrap:balance;letter-spacing:.005em}
+h2{font-family:var(--display);font-weight:600;font-size:22px;margin:0;letter-spacing:.01em;text-wrap:balance}
+.lede{color:var(--mute);margin:0;max-width:62ch}
+.lede b{color:var(--ink);font-weight:600}
+
+.stage{position:relative;width:100%;aspect-ratio:16/10;max-height:78vh;border-radius:14px;overflow:hidden;background:#14181b;border:1px solid var(--line)}
+@media (max-width:640px){.stage{aspect-ratio:4/5;max-height:72vh}}
+.stage:fullscreen{max-height:none;aspect-ratio:auto;border-radius:0;border:0}
+.stage{touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
+.stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%}
+.nogl[hidden]{display:none}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--mute)}
+.hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;background:rgba(10,14,17,.7);padding:8px 12px;border-radius:999px;pointer-events:none;transition:opacity .6s;color:var(--ink)}
+.seg.dark{background:rgba(14,19,23,.82);border-color:rgba(255,255,255,.14);border-radius:999px;backdrop-filter:blur(6px)}
+.seg.dark button{padding:10px 14px}
+.hud{position:absolute;left:12px;right:12px;top:10px;display:flex;justify-content:space-between;gap:8px;pointer-events:none;flex-wrap:wrap}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;background:rgba(10,14,17,.72);border:1px solid rgba(255,255,255,.08);padding:5px 9px;border-radius:999px;color:var(--ink)}
+.tag.amber{color:var(--signal)}
+.stagebar{margin-top:-8px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.btn{font:600 14px/1 var(--body);color:var(--ink);background:rgba(14,19,23,.82);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 14px;cursor:pointer;backdrop-filter:blur(6px)}
+.btn:hover{border-color:rgba(255,255,255,.3)}
+.btn:focus-visible,.chip:focus-visible,.seg button:focus-visible,input:focus-visible,.row:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.btn.primary{background:var(--signal);color:#1a1205;border-color:var(--signal)}
+.btn[aria-pressed="true"]{border-color:var(--signal);color:var(--signal)}
+
+.controls{display:grid;grid-template-columns:1fr;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.group{display:flex;flex-direction:column;gap:8px;min-width:0}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:500 14px/1.2 var(--body);color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px}
+.chip small{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.chip[aria-pressed="true"]{border-color:var(--signal);box-shadow:inset 0 0 0 1px var(--signal)}
+.chip.ghost{background:transparent}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;align-self:flex-start;flex-wrap:wrap}
+.seg button{font:500 14px/1.2 var(--body);color:var(--mute);background:transparent;border:0;padding:9px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink);box-shadow:inset 0 -2px 0 var(--signal)}
+.sliderrow{display:flex;align-items:center;gap:12px}
+.sliderrow input{flex:1;min-width:0;accent-color:var(--signal)}
+.sliderrow output{font-family:var(--mono);font-size:13px;min-width:7ch;text-align:right;font-variant-numeric:tabular-nums}
+@media (min-width:760px){.controls{grid-template-columns:1.4fr 1fr}.controls .wide{grid-column:1/-1}}
+
+.readouts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+@media (max-width:700px){.readouts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:var(--panel);padding:14px 14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .v{font-family:var(--display);font-weight:600;font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+.stat .v small{font-size:18px;color:var(--mute);font-weight:500}
+.stat .d{font-size:13px;color:var(--mute);line-height:1.35}
+.pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid currentColor;align-self:flex-start;text-transform:uppercase;letter-spacing:.06em}
+.pill.good{color:var(--good)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}
+
+.feels{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.feels .head{font-family:var(--display);font-size:clamp(26px,4.6vw,34px);font-weight:700;line-height:1.05;text-wrap:balance}
+.feels .main{font-size:18px;margin:0;max-width:62ch}
+.feels ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.feels li{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:baseline;border-top:1px solid var(--line);padding-top:10px}
+.feels li span:first-child{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+@media (max-width:480px){.feels li{grid-template-columns:1fr;gap:2px}}
+
+.ladder{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.ladder p{margin:0;color:var(--mute);font-size:14px}
+.rows{display:flex;flex-direction:column;gap:6px}
+.row{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) 62px 54px;gap:10px;align-items:center;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:transparent;color:inherit;font:inherit;text-align:left}
+.row:hover{background:var(--panel-2)}
+.row.sel{border-color:var(--signal);background:var(--panel-2)}
+.row .n{font-size:14px;line-height:1.2;min-width:0}
+.row .n small{display:block;font-family:var(--mono);font-size:10px;color:var(--mute)}
+.bar{height:10px;border-radius:5px;background:var(--panel-2);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;border-radius:5px;background:linear-gradient(90deg,#5c7d8c,var(--signal))}
+.row .val,.row .q{font-family:var(--mono);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.row .q{color:var(--mute)}
+.rowhead{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) 62px 54px;gap:10px;padding:0 8px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.rowhead span:nth-child(3),.rowhead span:nth-child(4){text-align:right}
+@media (max-width:480px){.row,.rowhead{grid-template-columns:minmax(0,110px) minmax(0,1fr) 52px 40px;gap:8px}}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card ol,.card ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.card li::marker{color:var(--signal);font-family:var(--mono)}
+.track{position:relative;height:56px;border-radius:28px;background:var(--panel-2);border:1px solid var(--line)}
+.track .mid{position:absolute;left:50%;top:10px;bottom:10px;width:1px;background:var(--line)}
+.track .lab{position:absolute;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:11px;color:var(--mute)}
+.dot{position:absolute;top:50%;left:50%;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;background:var(--signal);box-shadow:0 0 0 6px rgba(255,181,71,.18)}
+.tiny{font-size:13px;color:var(--mute);margin:0}
+footer{font-size:13px;color:var(--mute);border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:6px;max-width:75ch}
+footer p{margin:0}
+</style>
+
+<div class="app">
+  <header>
+    <div class="eyebrow">Tallinn → Helsinki · Sat 14 Nov · 13:30 sailing</div>
+    <h1>How will the ferry feel today?</h1>
+    <p class="lede">This is a 3D view of the ferry in today's forecast waves. Pick your seat below to look out of that window, or switch to <b>Outside</b> to watch the whole ship. The timing is <b>real speed</b>. The lean is enlarged <b>×3</b> by default so you can see it; switch to <b>True size</b> for the honest version. The amber line shows where the horizon would sit if the ship were still, and the small chart traces the last 60 seconds. Turn the sound on, hold the phone at arm's length, and watch the horizon, the glass of water and the lamp for a minute.</p>
+  </header>
+
+  <section class="stage" id="stage" aria-label="3D view of the ferry at sea">
+    <canvas id="gl"></canvas>
+    <canvas id="ov"></canvas>
+    <div class="nogl" id="nogl" hidden>Your browser couldn't start the 3D view. The readouts and comparisons below still work.</div>
+    <div class="hud">
+      <span class="tag" id="hudLeg">Open gulf · 14:00–15:00</span>
+      <span class="tag amber" id="hudScale">Real speed · motion ×3</span>
+    </div>
+    <div class="hint" id="hint">Drag sideways to look around</div>
+  </section>
+  <div class="stagebar">
+      <div class="seg dark" role="group" aria-label="View">
+        <button type="button" id="viewIn" aria-pressed="true">From your seat</button>
+        <button type="button" id="viewOut" aria-pressed="false">Outside</button>
+      </div>
+      <button class="btn primary" id="soundBtn" type="button">Turn on sound</button>
+      <div class="seg dark" role="group" aria-label="Motion size">
+        <button type="button" data-mag="1" aria-pressed="false">True size</button>
+        <button type="button" data-mag="3" aria-pressed="true">×3</button>
+        <button type="button" data-mag="6" aria-pressed="false">×6</button>
+      </div>
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+      <button class="btn" id="playBtn" type="button" hidden>Play motion</button>
+  </div>
+
+  <section class="controls" aria-label="Choose conditions">
+    <div class="group">
+      <span class="label">Today's crossing, by stretch</span>
+      <div class="chips" id="legChips"></div>
+    </div>
+    <div class="group">
+      <span class="label">Compare with</span>
+      <div class="chips" id="cmpChips"></div>
+    </div>
+    <div class="group">
+      <span class="label">Where you sit</span>
+      <div class="seg" role="group" aria-label="Seat">
+        <button type="button" id="seatMid" aria-pressed="true">Middle, low deck · side window</button>
+        <button type="button" id="seatBow" aria-pressed="false">Front, upper deck · forward lounge</button>
+      </div>
+    </div>
+    <div class="group">
+      <label class="label" for="sea">Or set the wave height yourself</label>
+      <div class="sliderrow">
+        <input type="range" id="sea" min="0.2" max="5" step="0.1" value="2">
+        <output id="seaOut" for="sea">2.0 m</output>
+      </div>
+    </div>
+  </section>
+
+  <section class="readouts" aria-label="Motion estimate">
+    <div class="stat"><span class="label">Side-to-side lean</span><span class="v" id="rRoll">±1.8<small>°</small></span><span class="d" id="rRollD">up to ~3.4° in the bigger waves</span></div>
+    <div class="stat"><span class="label">One full sway</span><span class="v" id="rPer">14<small> s</small></span><span class="d">about three slow breaths</span></div>
+    <div class="stat"><span class="label">Up-and-down bump</span><span class="v" id="rAcc">0.02<small> g</small></span><span class="d" id="rAccD">a lift starting is about 0.1 g</span></div>
+    <div class="stat"><span class="label">Likely to feel queasy</span><span class="v" id="rQ">6<small>%</small></span><span class="pill good" id="rQP">most people fine</span></div>
+  </section>
+
+  <section class="feels" aria-live="polite">
+    <span class="label">What it feels like</span>
+    <div class="head" id="fHead">Noticeable, gentle rocking</div>
+    <p class="main" id="fMain"></p>
+    <ul id="fList"></ul>
+  </section>
+
+  <section class="ladder">
+    <h2>Today next to other days</h2>
+    <p>Side-to-side lean for each case, from the same model and the seat you picked. Tap a row to feel it in the window above.</p>
+    <div class="rowhead"><span>Conditions</span><span>Lean</span><span>±deg</span><span>queasy</span></div>
+    <div class="rows" id="rows"></div>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <h2>Feel it in your body: 60 seconds</h2>
+      <ol>
+        <li>Stand up, feet hip-width apart, knees soft. Close your eyes after a few rounds.</li>
+        <li>Shift your weight from foot to foot, following the dot. Keep it small; someone watching should barely notice.</li>
+        <li>Keep going for a minute. That slow, never-ending sway is what the crossing feels like from the seat you picked.</li>
+      </ol>
+      <div class="track" aria-hidden="true"><span class="mid"></span><span class="lab" style="left:12px">left</span><span class="lab" style="right:12px">right</span><span class="dot" id="dot"></span></div>
+      <p class="tiny" id="dotNote">The dot follows the ship's sway at real speed: one full cycle every ~14 s.</p>
+    </section>
+    <section class="card">
+      <h2>To make it easier</h2>
+      <ul>
+        <li><b>Sit in the middle of the ship, on a low passenger deck.</b> That's where the ship moves least. The front, top lounges move the most.</li>
+        <li>Face forward and look out at the horizon. When your eyes see the motion your inner ear feels, you're less likely to get sick.</li>
+        <li>Don't read or scroll your phone for long stretches, especially in the middle of the gulf.</li>
+        <li>Eat something light beforehand. Skip greasy food and alcohol.</li>
+        <li>Seasickness tablets work best taken about an hour before you board. Ginger may help a little.</li>
+        <li>Outer decks may be closed in this wind. If you start to feel bad, close your eyes, lean your head back and breathe slowly.</li>
+      </ul>
+    </section>
+  </div>
+
+  <footer>
+    <p><b>Forecast:</b> Open-Meteo marine and wind forecast for 14 Nov 2026, taken at three points on the route: Tallinn bay (1.3 m waves, every 6.1 s), the middle of the gulf (2.0 m every 5.4 s, wind 13 m/s, gusts 18) and the Helsinki approach (1.1 m every 3.9 s). Waves and wind come from the west, so they hit the left side of a ship heading north.</p>
+    <p><b>Motion model:</b> a simplified estimate for a 185–212 m stabilised ferry like those on this route. The queasy figure uses the O'Hanlon–McCauley motion-sickness model for a 2-hour trip, scaled up from "vomiting" to "feeling queasy". Real motion depends on the ship, its speed and its course. Use this to get a feel, not as a guarantee.</p>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const HEADING=5; // Tallinn -> Helsinki, degrees
+const V=12;      // ship speed, m/s (~23 kn)
+const SCEN={
+  tallinn:{name:'Leaving Tallinn',time:'13:30–14:00',Hs:1.3,T:6.1,dir:288,wind:12.0,gust:17.0,leg:true,sky:'grey'},
+  gulf:{name:'Open gulf',time:'14:00–15:00 · roughest',Hs:2.0,T:5.4,dir:281,wind:13.3,gust:18.4,leg:true,sky:'grey'},
+  helsinki:{name:'Helsinki approach',time:'15:00–15:30',Hs:1.1,T:3.9,dir:284,wind:10.3,gust:16.0,leg:true,sky:'grey'},
+  calm:{name:'Calm summer day',time:'0.3 m waves',Hs:0.3,T:2.8,dir:200,wind:3,gust:5,sky:'blue'},
+  storm:{name:'Winter storm',time:'4.5 m waves',Hs:4.5,T:7.5,dir:250,wind:22,gust:30,sky:'dark'}
+};
+const SKY={
+  grey:{hor:[0.60,0.65,0.68],zen:[0.31,0.36,0.40],deep:[0.035,0.085,0.10],sc:[0.07,0.15,0.16],cloud:1.0,spec:0.15,fog:0.00042},
+  blue:{hor:[0.76,0.83,0.89],zen:[0.28,0.49,0.78],deep:[0.02,0.09,0.15],sc:[0.05,0.17,0.21],cloud:0.35,spec:1.0,fog:0.00025},
+  dark:{hor:[0.44,0.48,0.51],zen:[0.17,0.20,0.23],deep:[0.02,0.05,0.06],sc:[0.05,0.10,0.11],cloud:1.4,spec:0.08,fog:0.0006}
+};
+let key='gulf';
+let S=Object.assign({},SCEN.gulf);
+let seat='mid', mag=3, view='in';
+
+function Phi(z){const t=1/(1+0.2316419*Math.abs(z));const d=0.3989423*Math.exp(-z*z/2);const p=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p;}
+function MSI(a,f,mins){const lf=Math.log10(f);const za=2.128*Math.log10(Math.max(a,1e-4))-9.277*lf-5.809*lf*lf-1.851;const zt=1.134*za+1.989*Math.log10(mins)-2.904;return 100*Phi(za)*Phi(zt);}
+
+function model(s,st){
+  const bd=((s.dir-HEADING+540)%360)-180;
+  const beta=bd*Math.PI/180;
+  const sb=Math.abs(Math.sin(beta)), cb=Math.abs(Math.cos(beta));
+  const roll=0.9*s.Hs*(0.35+0.65*sb)*Math.pow(s.T/5.4,1.2);
+  const pitch=0.22*s.Hs*(0.3+0.7*cb)*Math.pow(s.T/5.4,1.5);
+  const heave=0.15*s.Hs*Math.pow(s.T/5.4,1.5);
+  const list=-Math.sign(Math.sin(beta)||1)*Math.min(2.5,0.003*s.wind*s.wind*sb);
+  const w=2*Math.PI/s.T;
+  const avMid=0.02*s.Hs*(0.5+0.5*cb)*Math.sqrt(5.4/s.T);
+  const avBow=avMid+70*(pitch*Math.PI/180)*w*w/9.81;
+  const av=st==='bow'?avBow:avMid;
+  const lat=Math.sin(roll*0.7*Math.PI/180)*(st==='bow'?1.3:1);
+  const a=Math.sqrt(av*av+Math.pow(0.5*lat,2));
+  const msi=MSI(a,1/s.T,120);
+  const queasy=Math.max(1,Math.min(85,Math.round(2+2.2*msi)));
+  const thumpP=Math.max(0,(s.Hs-1.2)*0.25*(0.3+0.7*cb))*(st==='bow'?2:1);
+  return {beta,bd,roll,pitch,heave,list,av,a,msi,queasy,thumpP,Tn:14,rollMax:roll*1.9};
+}
+let M=model(S,seat);
+
+/* ================= UI ================= */
+const $=id=>document.getElementById(id);
+function chip(k,host){
+  const b=document.createElement('button');b.type='button';b.className='chip';b.dataset.k=k;
+  b.innerHTML=SCEN[k].name+'<small>'+SCEN[k].time+'</small>';
+  b.addEventListener('click',()=>select(k));host.appendChild(b);
+}
+['tallinn','gulf','helsinki'].forEach(k=>chip(k,$('legChips')));
+['calm','storm'].forEach(k=>chip(k,$('cmpChips')));
+function select(k){key=k;S=Object.assign({},SCEN[k]);$('sea').value=S.Hs;render();}
+$('sea').addEventListener('input',e=>{
+  const v=parseFloat(e.target.value);
+  key='custom';
+  S={name:'Your setting',time:v.toFixed(1)+' m waves',Hs:v,T:2.6+1.45*v,dir:S.dir,wind:4+4.5*v,gust:(4+4.5*v)*1.4,sky:v<0.8?'blue':v>3.5?'dark':'grey'};
+  render();
+});
+function setSeat(s){seat=s;$('seatMid').setAttribute('aria-pressed',s==='mid');$('seatBow').setAttribute('aria-pressed',s==='bow');render();placeCamera();}
+$('seatMid').addEventListener('click',()=>setSeat('mid'));
+$('seatBow').addEventListener('click',()=>setSeat('bow'));
+function setView(v){view=v;$('viewIn').setAttribute('aria-pressed',v==='in');$('viewOut').setAttribute('aria-pressed',v==='out');$('hint').textContent=v==='in'?'Drag sideways to look around':'Drag to fly around the ship';hintShow();}
+$('viewIn').addEventListener('click',()=>setView('in'));
+$('viewOut').addEventListener('click',()=>setView('out'));
+document.querySelectorAll('[data-mag]').forEach(b=>b.addEventListener('click',()=>{mag=+b.dataset.mag;document.querySelectorAll('[data-mag]').forEach(x=>x.setAttribute('aria-pressed',x===b));$('hudScale').textContent=mag===1?'Real speed · true size':'Real speed · motion ×'+mag;}));
+$('fsBtn').addEventListener('click',()=>{
+  const st=$('stage');
+  try{
+    if(document.fullscreenElement){document.exitFullscreen();}
+    else if(st.requestFullscreen){st.requestFullscreen().catch(()=>{$('fsBtn').hidden=true;});}
+    else{$('fsBtn').hidden=true;}
+  }catch(e){$('fsBtn').hidden=true;}
+});
+let hintT=0;function hintShow(){$('hint').style.opacity=1;clearTimeout(hintT);hintT=setTimeout(()=>{$('hint').style.opacity=0;},3500);}
+hintShow();
+
+function feel(m,s){
+  const r=m.roll;
+  let head,main;
+  if(r<0.6){head='Barely there';main='Like sitting in a big hotel lobby. You would only notice by watching the water in your glass.';}
+  else if(r<1.5){head='A slow, gentle sway';main='Like a hammock someone pushed once, a while ago. Walking feels normal. You notice it more when you sit still or lie down.';}
+  else if(r<3){head='Noticeable rocking';main='Like standing in the aisle of a moving train: now and then you reach for a handrail. Coffee sloshes but stays in the cup. Glasses at the bar clink.';}
+  else if(r<5){head='Proper rolling';main='Like a playground swing pushed lightly. You walk in a zig-zag, bottles slide on tables, and lots of people sit down and stay put.';}
+  else{head='Heavy weather';main='Doors swing, things fall off shelves, and most people stay seated. Many feel sick.';}
+  const lift=m.av/0.1;
+  const accTxt=m.av<0.012?'Hardly any up-and-down motion.':'About '+(lift<0.45?'a fifth to a third':lift<0.8?'half':'the same as')+' the push you feel when a lift starts moving, over and over, every '+s.T.toFixed(0)+' seconds.';
+  const items=[
+    ['Lean',r<0.6?'Too small to see unless you watch the horizon.':'The floor tilts about '+(Math.tan(r*Math.PI/180)*100).toFixed(1)+' cm per metre at the far end of each sway, like a thick book under one end of a table.'],
+    ['Pace','One full sway, left and right, takes about '+m.Tn+' seconds. It is slow and uneven: a few calm sways, then a few bigger ones.'],
+    ['Bumps',accTxt+(m.thumpP>0.05?' Now and then a wave hits the bow with a dull thump you feel through the floor.':'')],
+  ];
+  if(Math.abs(m.list)>=0.3)items.push(['Steady lean','The wind pushes the whole ship over about '+Math.abs(m.list).toFixed(1)+'° to the '+(m.list>0?'right':'left')+' the entire way. You probably won’t notice, but a pen on a table might roll that way.']);
+  items.push(['Queasy','Roughly '+m.queasy+' in 100 people feel queasy after two hours'+(seat==='mid'?' in the middle of the ship.':' at the front.')+(m.queasy>12&&seat==='bow'?' Moving to the middle helps a lot.':'')]);
+  return {head,main,items};
+}
+function renderRows(){
+  const keys=['calm','helsinki','tallinn','gulf','storm'];
+  if(key==='custom')keys.push('custom');
+  const data=keys.map(k=>{const s=k==='custom'?S:SCEN[k];return {k,s,m:model(s,seat)};}).sort((a,b)=>a.m.roll-b.m.roll);
+  const max=Math.max(6,...data.map(d=>d.m.roll));
+  const host=$('rows');host.innerHTML='';
+  data.forEach(d=>{
+    const b=document.createElement('button');b.type='button';b.className='row'+(d.k===key?' sel':'');
+    b.innerHTML='<span class="n">'+d.s.name+'<small>'+(d.s.leg?'today · ':'')+d.s.time.replace(' · roughest','')+'</small></span><span class="bar"><i style="width:'+Math.max(1.5,d.m.roll/max*100).toFixed(1)+'%"></i></span><span class="val">'+d.m.roll.toFixed(1)+'°</span><span class="q">'+d.m.queasy+'%</span>';
+    if(d.k!=='custom')b.addEventListener('click',()=>{select(d.k);$('stage').scrollIntoView({behavior:'smooth',block:'start'});});
+    host.appendChild(b);
+  });
+}
+let lastSig='';
+function render(){
+  M=model(S,seat);
+  document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===key));
+  $('seaOut').textContent=S.Hs.toFixed(1)+' m';
+  $('hudLeg').textContent=S.name+' · '+S.time.replace(' · roughest','');
+  $('rRoll').innerHTML='±'+M.roll.toFixed(1)+'<small>°</small>';
+  $('rRollD').textContent='up to ~'+M.rollMax.toFixed(1)+'° in the bigger waves';
+  $('rPer').innerHTML=M.Tn+'<small> s</small>';
+  $('rAcc').innerHTML=M.av.toFixed(2)+'<small> g</small>';
+  $('rAccD').textContent=(seat==='bow'?'front of ship':'middle of ship')+' · a lift starting is about 0.1 g';
+  $('rQ').innerHTML=M.queasy+'<small>%</small>';
+  const qp=$('rQP');
+  if(M.queasy<12){qp.className='pill good';qp.textContent='most people fine';}
+  else if(M.queasy<35){qp.className='pill warn';qp.textContent='sensitive people may suffer';}
+  else{qp.className='pill bad';qp.textContent='many will feel it';}
+  const F=feel(M,S);
+  $('fHead').textContent=F.head;$('fMain').textContent=F.main;
+  $('fList').innerHTML=F.items.map(i=>'<li><span>'+i[0]+'</span><span>'+i[1]+'</span></li>').join('');
+  renderRows();
+  const sig=[S.Hs,S.T,S.dir,S.wind,S.sky].join('|');
+  if(sig!==lastSig){lastSig=sig;if(window.__seaReady)setSea();}
+}
+render();
+
+/* ================= Wave field (shared by GPU and ship physics) ================= */
+const NW=10;
+const COMPS=[[1.0,0,1.0],[0.86,18,0.75],[1.17,-15,0.7],[0.74,34,0.5],[1.36,-7,0.42],[0.64,-36,0.34],[0.55,52,0.24],[0.47,-22,0.18],[1.75,-28,0.22],[0.42,70,0.12]];
+let WV=[];
+function buildWaves(s){
+  const sumsq=COMPS.reduce((a,c)=>a+c[2]*c[2],0);
+  const c0=s.Hs/(4*Math.sqrt(sumsq/2));
+  const base=s.dir+180-HEADING;
+  let seed=11;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+  WV=COMPS.map(([pf,dd,af])=>{const T=s.T*pf,w=2*Math.PI/T,k=w*w/9.81,b=(base+dd)*Math.PI/180;return {dx:Math.sin(b),dz:-Math.cos(b),a:c0*af,k,w,ph:rnd()*Math.PI*2};});
+}
+function eta(x,z,t,tr){let h=0;for(let i=0;i<NW;i++){const v=WV[i];h+=v.a*Math.sin(v.k*(v.dx*x+v.dz*(z-tr))-v.w*t+v.ph);}return h;}
+
+/* ================= Ship physics: oscillators driven by the waves under the hull ================= */
+const wnR=2*Math.PI/14,zR=0.10,wnP=2*Math.PI/7,zP=0.35,wnH=2*Math.PI/7.5,zH=0.4;
+const SH={r:0,rv:0,p:0,pv:0,h:0,hv:0,gR:1,gP:1,gH:1,bow:0};
+function drive(t){
+  const tr=V*t;
+  let sl=0;for(const z of [-60,0,60])sl+=eta(-15,z,t,tr)-eta(15,z,t,tr);sl/=90;
+  const bow=(eta(0,-78,t,tr)+eta(0,-98,t,tr))/2, st=(eta(0,78,t,tr)+eta(0,98,t,tr))/2;
+  const pd=(bow-st)/176;
+  const hd=(bow+st+eta(-15,0,t,tr)+eta(15,0,t,tr)+eta(0,0,t,tr))/5;
+  return [sl,pd,hd,bow];
+}
+function stepShip(st,dt,t,g){
+  const d=drive(t);
+  st.rv+=(wnR*wnR*(g[0]*d[0]-st.r)-2*zR*wnR*st.rv)*dt;st.r+=st.rv*dt;
+  st.pv+=(wnP*wnP*(g[1]*d[1]-st.p)-2*zP*wnP*st.pv)*dt;st.p+=st.pv*dt;
+  st.hv+=(wnH*wnH*(g[2]*d[2]-st.h)-2*zH*wnH*st.hv)*dt;st.h+=st.hv*dt;
+  return d[3];
+}
+let simT=600;
+function calibrate(){
+  const st={r:0,rv:0,p:0,pv:0,h:0,hv:0};const dt=1/30;let sr=0,sp=0,sh=0,n=0;
+  for(let t=0;t<simT;t+=dt){stepShip(st,dt,t,[1,1,1]);if(t>150){sr+=st.r*st.r;sp+=st.p*st.p;sh+=st.h*st.h;n++;}}
+  const rr=Math.sqrt(sr/n)||1e-6,rp=Math.sqrt(sp/n)||1e-6,rh=Math.sqrt(sh/n)||1e-6;
+  SH.gR=(M.roll*Math.PI/180/2)/rr;SH.gP=(M.pitch*Math.PI/180/2)/rp;SH.gH=(M.heave/2)/rh;
+  SH.r=st.r*SH.gR;SH.rv=st.rv*SH.gR;SH.p=st.p*SH.gP;SH.pv=st.pv*SH.gP;SH.h=st.h*SH.gH;SH.hv=st.hv*SH.gH;
+}
+
+/* ================= Three.js scene ================= */
+const stage=$('stage'),glc=$('gl'),ov=$('ov'),octx=ov.getContext('2d');
+let renderer=null;
+try{ if(!window.THREE)throw 0; renderer=new THREE.WebGLRenderer({canvas:glc,antialias:true,powerPreference:'high-performance'}); }
+catch(e){ $('nogl').hidden=false; }
+
+let scene,camIn,camOut,rig,ship,ocean,sky,spray,oceanU,skyU;
+const GLSL_NOISE=`
+float hash(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);
+ return mix(mix(hash(i),hash(i+vec2(1.,0.)),u.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),u.x),u.y);}
+float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v;}
+`;
+if(renderer){
+  renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  scene=new THREE.Scene();
+  scene.fog=new THREE.FogExp2(0x9aa5ab,0.00042);
+  camIn=new THREE.PerspectiveCamera(58,1,0.3,12000);camIn.rotation.order='YXZ';
+  camOut=new THREE.PerspectiveCamera(45,1,1,12000);
+
+  // ---- sky dome
+  skyU={uTime:{value:0},uHor:{value:new THREE.Color()},uZen:{value:new THREE.Color()},uCloud:{value:1},uWind:{value:new THREE.Vector2(1,0)},uWs:{value:1}};
+  sky=new THREE.Mesh(new THREE.SphereGeometry(8000,32,16),new THREE.ShaderMaterial({
+    uniforms:skyU,side:THREE.BackSide,depthWrite:false,fog:false,
+    vertexShader:`varying vec3 vD;void main(){vD=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader:`uniform float uTime,uCloud,uWs;uniform vec3 uHor,uZen;uniform vec2 uWind;varying vec3 vD;`+GLSL_NOISE+`
+    void main(){vec3 d=normalize(vD);float h=d.y;
+      vec3 col=mix(uHor,uZen,smoothstep(0.0,0.55,max(h,0.)));
+      if(h>0.){vec2 uv=d.xz/(h+0.12)*0.9+uWind*uTime*0.0035*uWs;
+        float c=fbm(uv),c2=fbm(uv*2.6+vec2(3.1,1.3));
+        float fade=smoothstep(0.0,0.18,h);
+        col=mix(col,uZen*0.78,smoothstep(0.42,0.78,c)*0.6*fade*min(uCloud,1.2));
+        col=mix(col,vec3(0.82,0.85,0.87),smoothstep(0.55,0.85,c2)*0.32*fade*uCloud);}
+      gl_FragColor=vec4(col,1.);}`
+  }));
+  sky.renderOrder=-1;scene.add(sky);
+
+  // ---- ocean: denser grid near the ship, coarse towards the horizon
+  const N=240,R=3200,verts=new Float32Array((N+1)*(N+1)*3),idx=[];
+  for(let j=0;j<=N;j++)for(let i=0;i<=N;i++){const u=-1+2*i/N,v=-1+2*j/N,o=(j*(N+1)+i)*3;verts[o]=R*(0.11*u+0.89*u*u*u);verts[o+1]=0;verts[o+2]=R*(0.11*v+0.89*v*v*v);}
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const a=j*(N+1)+i,b=a+1,c=a+N+1,d=c+1;idx.push(a,c,b,b,c,d);}
+  const og=new THREE.BufferGeometry();og.setAttribute('position',new THREE.BufferAttribute(verts,3));og.setIndex(idx);
+  const A=[],B=[];for(let i=0;i<NW;i++){A.push(new THREE.Vector4());B.push(new THREE.Vector2());}
+  oceanU={uTime:{value:0},uTravel:{value:0},uSteep:{value:0.6},uA:{value:A},uB:{value:B},
+    uHor:{value:new THREE.Color()},uZen:{value:new THREE.Color()},uDeep:{value:new THREE.Color()},uSc:{value:new THREE.Color()},
+    uSun:{value:new THREE.Vector3(0.25,0.32,-0.91).normalize()},uSpec:{value:0.15},uFoamLo:{value:0.8},uFoamAmt:{value:0.6},uChop:{value:0.6},uFogD:{value:0.00042},uWind:{value:new THREE.Vector2(1,0)}};
+  ocean=new THREE.Mesh(og,new THREE.ShaderMaterial({uniforms:oceanU,
+    vertexShader:`#define NW ${NW}
+    uniform float uTime,uTravel,uSteep;uniform vec4 uA[NW];uniform vec2 uB[NW];
+    varying vec3 vW;varying vec3 vN;varying float vJ;varying float vH;
+    void main(){vec3 p=position;float dist=length(p.xz);float att=1.0-smoothstep(900.0,2600.0,dist);
+      vec3 disp=vec3(0.);vec3 n=vec3(0.,1.,0.);float J=1.0;
+      for(int i=0;i<NW;i++){vec4 A=uA[i];vec2 B=uB[i];float a=A.z*att,k=A.w;
+        float Q=uSteep/(k*max(A.z,1e-4)*float(NW));
+        float f=k*dot(A.xy,vec2(p.x,p.z-uTravel))-B.x*uTime+B.y;float c=cos(f),s=sin(f);
+        disp.x+=Q*a*A.x*c;disp.z+=Q*a*A.y*c;disp.y+=a*s;
+        n.x-=A.x*k*a*c;n.z-=A.y*k*a*c;n.y-=Q*k*a*s;J-=Q*k*a*s;}
+      vec3 wp=p+disp;vW=wp;vN=n;vJ=J;vH=disp.y;
+      gl_Position=projectionMatrix*modelViewMatrix*vec4(wp,1.);}`,
+    fragmentShader:`uniform float uTime,uTravel,uSpec,uFoamLo,uFoamAmt,uChop,uFogD;uniform vec3 uHor,uZen,uDeep,uSc,uSun;uniform vec2 uWind;
+    varying vec3 vW;varying vec3 vN;varying float vJ;varying float vH;`+GLSL_NOISE+`
+    float halfB(float z){return z< -40.0 ? 15.0*sqrt(clamp((z+105.0)/65.0,0.0,1.0)) : 15.0;}
+    void main(){
+      float dist=length(vW-cameraPosition);
+      vec2 q=vec2(vW.x,vW.z-uTravel);
+      float gust=fbm(q*0.005-uWind*uTime*0.12);
+      float dfade=1.0-smoothstep(40.0,520.0,dist);
+      vec2 qq=q*0.22+uWind*uTime*0.5;
+      float h0=fbm(qq),hx=fbm(qq+vec2(0.35,0.)),hz=fbm(qq+vec2(0.,0.35));
+      vec3 n=normalize(normalize(vN)+vec3(h0-hx,0.,h0-hz)*uChop*(0.5+0.9*gust)*dfade*5.0);
+      vec3 v=normalize(cameraPosition-vW);
+      float ndv=max(dot(n,v),0.0);
+      float fres=0.02+0.98*pow(1.0-ndv,5.0);
+      vec3 r=reflect(-v,n);r.y=abs(r.y);
+      vec3 skyc=mix(uHor,uZen,smoothstep(0.0,0.5,r.y));
+      vec3 body=uDeep+uSc*clamp(vH*0.3+0.35,0.0,1.2)*(1.0-0.5*ndv);
+      vec3 col=mix(body,skyc,clamp(fres,0.0,1.0)*0.85);
+      col*=0.9+0.16*gust;
+      col+=vec3(1.0,0.97,0.92)*pow(max(dot(r,uSun),0.0),90.0)*uSpec;
+      float fn=fbm(q*0.16+vec2(uTime*0.03,0.0));
+      float crest=smoothstep(uFoamLo,uFoamLo-0.28,vJ);
+      float foam=crest*smoothstep(0.38,0.62,fn+crest*0.25)*uFoamAmt;
+      float hb=halfB(vW.z);
+      float side=(vW.z>-106.0&&vW.z<100.0)?smoothstep(7.0,0.0,abs(abs(vW.x)-hb-2.0)):0.0;
+      float wakeW=15.0+max(vW.z-100.0,0.0)*0.22;
+      float wake=vW.z>95.0?smoothstep(wakeW,wakeW*0.4,abs(vW.x))*exp(-(vW.z-100.0)/700.0):0.0;
+      float bowp=exp(-length(vec2(vW.x,vW.z+104.0))/9.0);
+      float tex=fbm(q*0.35+vec2(0.0,uTime*0.4));
+      foam=max(foam,(side*0.75+wake*0.9+bowp)*smoothstep(0.3,0.7,tex+0.15));
+      col=mix(col,vec3(0.86,0.9,0.92),clamp(foam,0.0,1.0));
+      float fogF=1.0-exp(-pow(dist*uFogD,2.0));
+      col=mix(col,uHor,fogF);
+      gl_FragColor=vec4(col,1.);}`
+  }));
+  ocean.frustumCulled=false;scene.add(ocean);
+
+  // ---- lights
+  scene.add(new THREE.HemisphereLight(0xc4cfd6,0x26302f,0.95));
+  const sun=new THREE.DirectionalLight(0xffffff,0.55);sun.position.set(-300,500,-400);scene.add(sun);
+
+  // ---- ship (generic ro-pax ferry, 210 m)
+  ship=new THREE.Group();ship.rotation.order='YXZ';scene.add(ship);
+  const plan=new THREE.Shape();
+  plan.moveTo(-14,-100);plan.lineTo(14,-100);plan.lineTo(15,-94);plan.lineTo(15,40);
+  plan.quadraticCurveTo(15,85,0,105);plan.quadraticCurveTo(-15,85,-15,40);plan.lineTo(-15,-94);plan.closePath();
+  function hullPart(y0,y1,scale,mats){
+    const g=new THREE.ExtrudeGeometry(plan,{depth:y1-y0,bevelEnabled:false,curveSegments:20});
+    g.rotateX(-Math.PI/2);g.scale(scale,1,scale);g.translate(0,y0,0);
+    return new THREE.Mesh(g,mats);
+  }
+  const L=c=>new THREE.MeshLambertMaterial({color:c});
+  const deckM=L(0x56666b),hullM=L(0xdfe4e7),navyM=L(0x1b2a44),amberM=L(0xd99a2b),darkM=L(0x2a3238),glassM=L(0x1c2731);
+  ship.add(hullPart(-7,12,1,[deckM,hullM]));
+  ship.add(hullPart(-7.2,2.5,1.004,[navyM,navyM]));
+  ship.add(hullPart(3.2,4.4,1.006,[amberM,amberM]));
+  // superstructure with window rows
+  function winTex(){const c=document.createElement('canvas');c.width=256;c.height=64;const g=c.getContext('2d');g.fillStyle='#e8ecee';g.fillRect(0,0,256,64);g.fillStyle='#1d2934';for(let r=0;r<2;r++)for(let i=0;i<16;i++)g.fillRect(i*16+3,9+r*30,10,13);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;}
+  function block(w,h,z0,z1,y0,mat){const len=z1-z0;const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,len),mat);m.position.set(0,y0+h/2,(z0+z1)/2);ship.add(m);return m;}
+  const wt1=winTex();wt1.repeat.set(130/48,12/7);
+  const wt2=winTex();wt2.repeat.set(113/48,12/7);
+  const wt3=winTex();wt3.repeat.set(85/48,1);
+  const white=L(0xe8ecee);
+  block(28,12,-45,85,12,[new THREE.MeshLambertMaterial({map:wt1}),new THREE.MeshLambertMaterial({map:wt1}),white,white,white,new THREE.MeshLambertMaterial({map:wt1})]);
+  block(27,12,-38,75,24,[new THREE.MeshLambertMaterial({map:wt2}),new THREE.MeshLambertMaterial({map:wt2}),white,white,white,new THREE.MeshLambertMaterial({map:wt2})]);
+  block(24,6,-30,55,36,[new THREE.MeshLambertMaterial({map:wt3}),new THREE.MeshLambertMaterial({map:wt3}),white,white,white,glassM]);
+  block(34,4,-31,-22,42,[white,white,white,white,white,glassM]);
+  block(9,14,48,62,42,navyM);block(9.2,1.6,48,62,52,amberM);
+  // foredeck details
+  const wb=new THREE.BoxGeometry(3,2,3);[[-5,-80],[5,-80],[-4,-60],[4,-60]].forEach(([x,z])=>{const m=new THREE.Mesh(wb,darkM);m.position.set(x,13,z);ship.add(m);});
+  const mast=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,10,8),L(0xd8dde0));mast.position.set(0,17,-99);ship.add(mast);
+  const rail=plan.getPoints(20).filter(p=>p.y>-90).map(p=>new THREE.Vector3(p.x,13.1,-p.y));
+  ship.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rail),new THREE.LineBasicMaterial({color:0xcfd5d8})));
+  // seat camera rig, fixed to the ship
+  rig=new THREE.Object3D();ship.add(rig);rig.add(camIn);
+
+  // ---- spray particles
+  const SP=500,spPos=new Float32Array(SP*3).fill(-9999);
+  const spG=new THREE.BufferGeometry();spG.setAttribute('position',new THREE.BufferAttribute(spPos,3));
+  const dc=document.createElement('canvas');dc.width=dc.height=64;const dg=dc.getContext('2d');const rg=dg.createRadialGradient(32,32,0,32,32,32);rg.addColorStop(0,'rgba(255,255,255,1)');rg.addColorStop(1,'rgba(255,255,255,0)');dg.fillStyle=rg;dg.fillRect(0,0,64,64);
+  spray=new THREE.Points(spG,new THREE.PointsMaterial({size:2.4,map:new THREE.CanvasTexture(dc),transparent:true,opacity:0.85,depthWrite:false,color:0xe6eef1}));
+  spray.frustumCulled=false;scene.add(spray);
+  spray.userData={v:new Float32Array(SP*3),life:new Float32Array(SP),n:SP,next:0};
+  window.__seaReady=true;
+}
+
+function setSea(){
+  buildWaves(S);
+  const P=SKY[S.sky||'grey'];
+  if(oceanU){
+    for(let i=0;i<NW;i++){const w=WV[i];oceanU.uA.value[i].set(w.dx,w.dz,w.a,w.k);oceanU.uB.value[i].set(w.w,w.ph);}
+    const steep=Math.min(0.95,Math.max(0.25,0.25+S.wind/28));
+    oceanU.uSteep.value=steep;oceanU.uFoamLo.value=1-0.3*steep;
+    oceanU.uFoamAmt.value=Math.min(1,Math.max(0,(S.wind-4)/12));
+    oceanU.uChop.value=Math.min(1,Math.max(0.12,S.wind/20));
+    oceanU.uHor.value.setRGB(...P.hor);oceanU.uZen.value.setRGB(...P.zen);oceanU.uDeep.value.setRGB(...P.deep);oceanU.uSc.value.setRGB(...P.sc);
+    oceanU.uSpec.value=P.spec;oceanU.uFogD.value=P.fog;
+    oceanU.uWind.value.set(WV[0].dx,WV[0].dz);
+    skyU.uHor.value.setRGB(...P.hor);skyU.uZen.value.setRGB(...P.zen);skyU.uCloud.value=P.cloud;skyU.uWind.value.set(WV[0].dx,WV[0].dz);skyU.uWs.value=S.wind/10;
+    scene.fog.color.setRGB(...P.hor);scene.fog.density=P.fog;
+  }
+  calibrate();
+}
+setSea();
+
+/* ---- cameras & look controls */
+let lookYaw=0,lookPitch=0,az=0.32,el=0.09,dist=250;
+function placeCamera(){
+  if(!rig)return;
+  if(seat==='mid'){rig.position.set(-14.8,18,4);rig.rotation.set(0,Math.PI/2,0);}
+  else{rig.position.set(0,39.5,-31.5);rig.rotation.set(0,0,0);}
+}
+placeCamera();
+let drag=null;
+stage.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;drag={x:e.clientX,y:e.clientY,id:e.pointerId};try{stage.setPointerCapture(e.pointerId);}catch(_){} });
+stage.addEventListener('pointermove',e=>{
+  if(!drag||drag.id!==e.pointerId)return;
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+  const vy=e.pointerType==='mouse'?dy:0;
+  if(view==='in'){lookYaw=Math.max(-1.1,Math.min(1.1,lookYaw-dx*0.004));lookPitch=Math.max(-0.4,Math.min(0.35,lookPitch-vy*0.003));}
+  else{az-=dx*0.005;el=Math.max(0.03,Math.min(1.2,el+vy*0.004));}
+});
+const endDrag=()=>{drag=null;};
+stage.addEventListener('pointerup',endDrag);stage.addEventListener('pointercancel',endDrag);
+stage.addEventListener('wheel',e=>{if(view!=='out')return;e.preventDefault();dist=Math.max(140,Math.min(1100,dist*(1+Math.sign(e.deltaY)*0.08)));},{passive:false});
+
+/* ---- sizing */
+let W=1,H=1,dprO=1;
+function resize(){const r=stage.getBoundingClientRect();W=Math.max(1,r.width);H=Math.max(1,r.height);dprO=Math.min(2,window.devicePixelRatio||1);
+  ov.width=Math.round(W*dprO);ov.height=Math.round(H*dprO);
+  if(renderer){renderer.setSize(W,H,false);camIn.aspect=camOut.aspect=W/H;camIn.updateProjectionMatrix();camOut.updateProjectionMatrix();}}
+new ResizeObserver(resize).observe(stage);resize();
+
+/* ---- 2D overlay: window frame, glass of water, lamp, clinometer, drops on glass */
+let drops=[],shake=0;
+function drawOverlay(t,tilt,rollDeg){
+  octx.setTransform(dprO,0,0,dprO,0,0);octx.clearRect(0,0,W,H);
+  const cr2=Math.min(W*0.08,H*0.075);
+  if(view==='out'){clino(W-cr2-18,H-cr2-70,cr2,rollDeg,true);return;}
+  const wx=W*0.04,wy=H*0.07,ww=W*0.92,wh=H*0.75,sy=wy+wh;
+  // drops on the glass
+  octx.save();octx.beginPath();octx.rect(wx,wy,ww,wh);octx.clip();
+  drops.forEach(d=>{octx.fillStyle='rgba(215,228,234,'+(0.35*d.l)+')';octx.beginPath();octx.arc(d.x*W,d.y*H,d.r,0,Math.PI*2);octx.fill();octx.fillStyle='rgba(255,255,255,'+(0.5*d.l)+')';octx.beginPath();octx.arc(d.x*W-d.r*0.3,d.y*H-d.r*0.3,d.r*0.3,0,Math.PI*2);octx.fill();});
+  octx.restore();
+  octx.fillStyle='#191d21';octx.beginPath();octx.rect(0,0,W,H);octx.rect(wx,wy,ww,wh);octx.fill('evenodd');
+  octx.strokeStyle='#2e363c';octx.lineWidth=8;octx.strokeRect(wx,wy,ww,wh);
+  octx.fillStyle='#262d32';[1/3,2/3].forEach(p=>octx.fillRect(wx+ww*p-4,wy,8,wh));
+  let g=octx.createLinearGradient(0,sy,0,H);g.addColorStop(0,'#3a3128');g.addColorStop(1,'#1f1a15');
+  octx.fillStyle=g;octx.fillRect(0,sy,W,H-sy);octx.fillStyle='rgba(255,255,255,.06)';octx.fillRect(0,sy,W,2);
+  // glass of water
+  const gw=Math.min(W*0.1,H*0.09),gh=gw*1.45,gx=W*0.16,gb=sy+(H-sy)*0.62,gt=gb-gh;
+  octx.save();octx.beginPath();octx.moveTo(gx-gw/2,gt);octx.lineTo(gx+gw/2,gt);octx.lineTo(gx+gw*0.42,gb);octx.lineTo(gx-gw*0.42,gb);octx.closePath();
+  octx.fillStyle='rgba(200,220,230,.08)';octx.fill();octx.clip();
+  octx.translate(gx,gt+gh*0.35);octx.rotate(-tilt+Math.sin(t*4.2)*shake*0.02);
+  octx.fillStyle='rgba(120,175,205,.55)';octx.fillRect(-gw*2,0,gw*4,gh*2);
+  octx.strokeStyle='rgba(225,240,248,.9)';octx.lineWidth=1.5;octx.beginPath();octx.moveTo(-gw*2,0);octx.lineTo(gw*2,0);octx.stroke();
+  octx.restore();
+  octx.strokeStyle='rgba(225,235,240,.65)';octx.lineWidth=1.5;
+  octx.beginPath();octx.moveTo(gx-gw/2,gt);octx.lineTo(gx-gw*0.42,gb);octx.lineTo(gx+gw*0.42,gb);octx.lineTo(gx+gw/2,gt);octx.stroke();
+  clino(W*0.84,sy+(H-sy)*0.25,cr2,rollDeg,false);
+  // hanging lamp, always points at true "down"
+  const ax=W*0.74,Lh=H*0.2,la=tilt+Math.sin(t*3.1)*shake*0.01;
+  const bx=ax+Math.sin(la)*Lh,by=Math.cos(la)*Lh;
+  octx.strokeStyle='#0c0f11';octx.lineWidth=1.5;octx.beginPath();octx.moveTo(ax,0);octx.lineTo(bx,by);octx.stroke();
+  const lg=octx.createRadialGradient(bx,by+8,0,bx,by+8,H*0.18);lg.addColorStop(0,'rgba(255,200,120,.25)');lg.addColorStop(1,'rgba(255,200,120,0)');
+  octx.fillStyle=lg;octx.beginPath();octx.arc(bx,by+8,H*0.18,0,Math.PI*2);octx.fill();
+  octx.save();octx.translate(bx,by);octx.rotate(-la);
+  octx.fillStyle='#2a2522';octx.beginPath();octx.moveTo(-6,0);octx.lineTo(6,0);octx.lineTo(18,16);octx.lineTo(-18,16);octx.closePath();octx.fill();
+  octx.fillStyle='#ffd79a';octx.beginPath();octx.ellipse(0,17,10,3,0,0,Math.PI*2);octx.fill();
+  octx.restore();
+}
+function clino(cx,cy,r,deg,bg){
+  octx.fillStyle=bg?'rgba(14,19,23,.8)':'#14181b';octx.beginPath();octx.arc(cx,cy,r+6,0,Math.PI);octx.closePath();octx.fill();
+  octx.strokeStyle='#8b979e';octx.lineWidth=1;
+  for(let d=-20;d<=20;d+=5){const a=Math.PI/2+d*Math.PI/90;const l=d%10===0?9:5;octx.beginPath();octx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);octx.lineTo(cx+Math.cos(a)*(r-l),cy+Math.sin(a)*(r-l));octx.stroke();}
+  const na=Math.PI/2+deg*Math.PI/90;
+  octx.strokeStyle='#ffb547';octx.lineWidth=2.5;octx.beginPath();octx.moveTo(cx,cy);octx.lineTo(cx+Math.cos(na)*(r-3),cy+Math.sin(na)*(r-3));octx.stroke();
+  octx.fillStyle='#ffb547';octx.beginPath();octx.arc(cx,cy,3,0,Math.PI*2);octx.fill();
+  octx.fillStyle='#e7edf0';octx.font='600 '+Math.max(11,r*0.32)+'px "JetBrains Mono",monospace';octx.textAlign='center';
+  octx.fillText(Math.abs(deg).toFixed(1)+'° '+(deg>=0?'R':'L'),cx,cy-8);
+}
+
+/* ---- motion guides: live trace + level reference */
+const hist=[];let lastHist=0;
+const pv1=window.THREE?new THREE.Vector3():null,pv2=window.THREE?new THREE.Vector3():null;
+function scr(v){v.project(cam_);return [(v.x+1)/2*W,(1-v.y)/2*H];}
+let cam_=null;
+function drawGuides(cam,rollDeg,pitchDeg){
+  octx.setTransform(dprO,0,0,dprO,0,0);
+  // live trace of the last 60 s
+  const cw=Math.min(250,W*0.46),ch=70,x0=12,y0=44;
+  octx.fillStyle='rgba(10,14,17,.74)';octx.beginPath();if(octx.roundRect)octx.roundRect(x0,y0,cw,ch+30,10);else octx.rect(x0,y0,cw,ch+30);octx.fill();
+  const sc=Math.max(2,M.rollMax*1.15),mid=y0+22+ch/2,px=cw-16;
+  octx.strokeStyle='rgba(255,255,255,.15)';octx.lineWidth=1;octx.beginPath();octx.moveTo(x0+8,mid);octx.lineTo(x0+8+px,mid);octx.stroke();
+  const line=(idx,col)=>{octx.strokeStyle=col;octx.lineWidth=2;octx.beginPath();hist.forEach((h,i)=>{const x=x0+8+px*(i/599)+px*(1-hist.length/600);const y=mid-(h[idx]/sc)*(ch/2);i?octx.lineTo(x,y):octx.moveTo(x,y);});octx.stroke();};
+  line(1,'#8fc7e8');line(0,'#ffb547');
+  octx.font='600 10px "JetBrains Mono",monospace';octx.textAlign='left';
+  octx.fillStyle='#ffb547';octx.fillText('LEAN '+(rollDeg>=0?'R ':'L ')+Math.abs(rollDeg).toFixed(1)+'°',x0+8,y0+15);
+  octx.fillStyle='#8fc7e8';octx.fillText('NOSE '+(pitchDeg>=0?'UP ':'DN ')+Math.abs(pitchDeg).toFixed(2)+'°',x0+cw/2+4,y0+15);
+  octx.fillStyle='rgba(231,237,240,.6)';octx.fillText('last 60 s · ±'+sc.toFixed(1)+'° true',x0+8,y0+ch+26);
+  if(!cam||!renderer)return;
+  cam_=cam;
+  octx.setLineDash([7,6]);octx.lineWidth=1.5;
+  if(view==='in'){
+    // where the horizon would be if the ship were still
+    const yR=H/2+(H/2)*Math.tan(camIn.rotation.x)/Math.tan(camIn.fov*Math.PI/360);
+    const wx=W*0.04,ww=W*0.92;
+    octx.strokeStyle='rgba(255,181,71,.85)';octx.beginPath();octx.moveTo(wx,yR);octx.lineTo(wx+ww,yR);octx.stroke();
+    octx.setLineDash([]);octx.fillStyle='rgba(255,181,71,.95)';octx.textAlign='right';octx.fillText('HORIZON IF THE SHIP WERE STILL',wx+ww-8,yR-6);
+  }else{
+    // ship's deck line vs a level line through the same point
+    pv1.set(-24,40,30);ship.localToWorld(pv1);pv2.set(24,40,30);ship.localToWorld(pv2);
+    const c=pv1.clone().add(pv2).multiplyScalar(0.5);
+    const a=scr(pv1.clone()),b=scr(pv2.clone());
+    const la=scr(c.clone().add(new THREE.Vector3(-24,0,0))),lb=scr(c.clone().add(new THREE.Vector3(24,0,0)));
+    octx.strokeStyle='rgba(255,255,255,.8)';octx.beginPath();octx.moveTo(la[0],la[1]);octx.lineTo(lb[0],lb[1]);octx.stroke();
+    octx.setLineDash([]);octx.strokeStyle='#ffb547';octx.lineWidth=3;octx.beginPath();octx.moveTo(a[0],a[1]);octx.lineTo(b[0],b[1]);octx.stroke();
+    octx.fillStyle='#ffb547';octx.textAlign='left';octx.fillText('SHIP',b[0]+6,b[1]+4);
+    octx.fillStyle='rgba(255,255,255,.85)';octx.fillText('LEVEL',lb[0]+6,lb[1]-6);
+  }
+  octx.setLineDash([]);
+}
+
+/* ================= Audio ================= */
+let AC=null,master,windG,windF,whG,whF,seaG,soundOn=false,whiteBuf,brownBuf;
+function startAudio(){
+  const C=window.AudioContext||window.webkitAudioContext;if(!C)return false;
+  AC=new C();const len=AC.sampleRate*3;
+  whiteBuf=AC.createBuffer(1,len,AC.sampleRate);brownBuf=AC.createBuffer(1,len,AC.sampleRate);
+  const w=whiteBuf.getChannelData(0),b=brownBuf.getChannelData(0);let last=0;
+  for(let i=0;i<len;i++){const r=Math.random()*2-1;w[i]=r;last=(last+0.02*r)/1.02;b[i]=last*3.5;}
+  const src=buf=>{const s=AC.createBufferSource();s.buffer=buf;s.loop=true;s.start();return s;};
+  master=AC.createGain();master.gain.value=0.9;master.connect(AC.destination);
+  windF=AC.createBiquadFilter();windF.type='bandpass';windF.frequency.value=500;windF.Q.value=0.6;
+  windG=AC.createGain();windG.gain.value=0;src(whiteBuf).connect(windF).connect(windG).connect(master);
+  whF=AC.createBiquadFilter();whF.type='bandpass';whF.frequency.value=1100;whF.Q.value=14;
+  whG=AC.createGain();whG.gain.value=0;src(whiteBuf).connect(whF).connect(whG).connect(master);
+  const seaF=AC.createBiquadFilter();seaF.type='lowpass';seaF.frequency.value=380;
+  seaG=AC.createGain();seaG.gain.value=0;src(brownBuf).connect(seaF).connect(seaG).connect(master);
+  [[46,0.05],[92,0.018],[138,0.008]].forEach(([fq,gv])=>{const o=AC.createOscillator();o.frequency.value=fq;const gg=AC.createGain();gg.gain.value=gv;o.connect(gg).connect(master);o.start();});
+  return true;
+}
+function creak(intensity){
+  if(!soundOn)return;const n=AC.currentTime;
+  const o=AC.createOscillator();o.type='sawtooth';const f0=70+Math.random()*30;
+  o.frequency.setValueAtTime(f0,n);o.frequency.linearRampToValueAtTime(f0*0.75,n+0.9);
+  const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=650+Math.random()*300;bp.Q.value=7;
+  const g=AC.createGain();g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(0.10*intensity,n+0.12);g.gain.exponentialRampToValueAtTime(0.001,n+1.0);
+  o.connect(bp).connect(g).connect(master);o.start(n);o.stop(n+1.05);
+}
+function thump(strength){
+  shake=Math.min(6,2+strength*4);
+  if(seat==='bow'||view==='out')for(let i=0;i<Math.round(10+strength*30);i++)drops.push({x:0.08+Math.random()*0.84,y:0.08+Math.random()*0.55,r:1+Math.random()*3.5,l:1,v:0.002+Math.random()*0.01});
+  burstSpray(strength);
+  try{if(navigator.vibrate)navigator.vibrate([45,40,25]);}catch(e){}
+  if(!soundOn)return;const n=AC.currentTime;
+  const o=AC.createOscillator();o.frequency.setValueAtTime(75,n);o.frequency.exponentialRampToValueAtTime(30,n+0.45);
+  const g=AC.createGain();g.gain.setValueAtTime(0.0001,n);g.gain.exponentialRampToValueAtTime(0.55*Math.min(1,0.4+strength),n+0.02);g.gain.exponentialRampToValueAtTime(0.001,n+0.6);
+  o.connect(g).connect(master);o.start(n);o.stop(n+0.65);
+  const s=AC.createBufferSource();s.buffer=whiteBuf;const hp=AC.createBiquadFilter();hp.type='highpass';hp.frequency.value=1500;
+  const g2=AC.createGain();g2.gain.setValueAtTime(0.0001,n+0.25);g2.gain.exponentialRampToValueAtTime(0.12,n+0.4);g2.gain.exponentialRampToValueAtTime(0.001,n+1.3);
+  s.connect(hp).connect(g2).connect(master);s.start(n+0.2);s.stop(n+1.4);
+}
+const tmpV=window.THREE?new THREE.Vector3():null;
+function burstSpray(strength){
+  if(!spray)return;const U=spray.userData,pos=spray.geometry.attributes.position.array;
+  const n=Math.round(80+strength*220);const wx=WV[0].dx,wz=WV[0].dz;
+  for(let i=0;i<n;i++){const j=U.next;U.next=(U.next+1)%U.n;
+    tmpV.set((Math.random()-0.5)*18,6+Math.random()*4,-96+Math.random()*14);ship.localToWorld(tmpV);
+    pos[j*3]=tmpV.x;pos[j*3+1]=tmpV.y;pos[j*3+2]=tmpV.z;
+    const side=Math.sign(tmpV.x)||1;
+    U.v[j*3]=side*(2+Math.random()*7)+wx*S.wind*0.5;U.v[j*3+1]=5+Math.random()*10*(0.5+strength);U.v[j*3+2]=V*0.9+wz*S.wind*0.5+(Math.random()-0.5)*4;
+    U.life[j]=1.6+Math.random()*1.2;}
+}
+function updateSpray(dt){
+  if(!spray)return;const U=spray.userData,pos=spray.geometry.attributes.position.array;let any=false;
+  for(let j=0;j<U.n;j++){if(U.life[j]<=0)continue;any=true;U.life[j]-=dt;
+    U.v[j*3+1]-=9.81*dt;pos[j*3]+=U.v[j*3]*dt;pos[j*3+1]+=U.v[j*3+1]*dt;pos[j*3+2]+=U.v[j*3+2]*dt;
+    if(U.life[j]<=0||pos[j*3+1]<-2){U.life[j]=0;pos[j*3+1]=-9999;}}
+  if(any)spray.geometry.attributes.position.needsUpdate=true;
+}
+$('soundBtn').addEventListener('click',()=>{
+  if(!AC){if(!startAudio()){$('soundBtn').textContent='Sound not available';return;}}
+  soundOn=!soundOn;
+  if(soundOn){AC.resume();master.gain.setTargetAtTime(0.9,AC.currentTime,0.2);}
+  else master.gain.setTargetAtTime(0,AC.currentTime,0.2);
+  $('soundBtn').textContent=soundOn?'Sound off':'Turn on sound';
+  $('soundBtn').classList.toggle('primary',!soundOn);
+  if(paused)setPaused(false);
+});
+function gustAt(t){return 0.5+0.22*Math.sin(t*0.71)+0.17*Math.sin(t*1.93+1)+0.11*Math.sin(t*3.7+2);}
+
+/* ================= Loop ================= */
+const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let paused=reduce;
+function setPaused(p){paused=p;$('playBtn').hidden=!p;}
+setPaused(reduce);
+$('playBtn').addEventListener('click',()=>setPaused(false));
+
+let lastNow=performance.now(),prevRoll=0,prevVel=0,lastCreak=0,lastThump=0,prevBow=0,bowRising=false;
+const R2D=180/Math.PI;
+function tick(dt){
+  const sub=Math.max(1,Math.ceil(dt*60)),h=dt/sub;let bow=0;
+  for(let i=0;i<sub;i++){simT+=h;bow=stepShip(SH,h,simT,[SH.gR,SH.gP,SH.gH]);}
+  // thump when a crest peaks at the bow
+  const rising=bow>prevBow;
+  if(bowRising&&!rising&&bow>0.32*S.Hs&&simT-lastThump>5&&Math.random()<Math.min(0.9,M.thumpP*3)){lastThump=simT;thump(Math.min(1,S.Hs/4));}
+  bowRising=rising;prevBow=bow;
+  shake=Math.max(0,shake-dt*8);
+  drops.forEach(d=>{d.y+=d.v*dt*6;d.l-=dt*0.18;});drops=drops.filter(d=>d.l>0&&d.y<0.9);
+  updateSpray(dt);
+}
+function frame(now){
+  const dt=Math.min(0.1,(now-lastNow)/1000);lastNow=now;
+  if(!paused)tick(dt);
+  const rollDeg=M.list+SH.r*R2D, pitchDeg=SH.p*R2D;
+  const yaw=0.004*S.Hs*(Math.sin(simT/9.3)+0.6*Math.sin(simT/4.1+1));
+  const vib=0.00012*Math.sin(simT*61);
+  let tilt=0,cam=null;
+  if(renderer){
+    ship.position.y=SH.h+(shake>0?Math.sin(simT*40)*shake*0.015:0);
+    ship.rotation.set(pitchDeg*mag/R2D+vib,yaw,-rollDeg*mag/R2D);
+    oceanU.uTime.value=simT;oceanU.uTravel.value=V*simT;skyU.uTime.value=simT;
+    if(view==='in'){camIn.rotation.set(lookPitch-(seat==='bow'?0.14:0.06),lookYaw,0);cam=camIn;}
+    else{const tx=0,ty=22,tz=-10;camOut.position.set(tx+dist*Math.cos(el)*Math.sin(az),Math.max(6,ty+dist*Math.sin(el)),tz+dist*Math.cos(el)*Math.cos(az));camOut.lookAt(tx,ty,tz);cam=camOut;}
+    cam.updateMatrixWorld();
+    const p=new THREE.Vector3();cam.getWorldPosition(p);sky.position.copy(p);
+    renderer.render(scene,cam);
+    const q=new THREE.Quaternion();cam.getWorldQuaternion(q);
+    const right=new THREE.Vector3(1,0,0).applyQuaternion(q);tilt=-Math.asin(Math.max(-1,Math.min(1,right.y)));
+  }
+  drawOverlay(simT,tilt,rollDeg);
+  if(!paused&&simT-lastHist>0.1){lastHist=simT;hist.push([rollDeg,pitchDeg]);if(hist.length>600)hist.shift();}
+  drawGuides(cam,rollDeg,pitchDeg);
+  if(!paused){
+    const vel=rollDeg-prevRoll;
+    if(prevVel!==0&&Math.sign(vel)!==Math.sign(prevVel)&&M.roll>0.4&&simT-lastCreak>4&&Math.abs(rollDeg-M.list)>M.roll*0.4){lastCreak=simT;creak(Math.min(1,M.roll/4));}
+    if(vel!==0)prevVel=vel;prevRoll=rollDeg;
+    if(soundOn){
+      const n=AC.currentTime,gu=gustAt(simT);
+      const wl=Math.min(1,S.wind/24)*(0.7+0.5*(gu-0.5));
+      windG.gain.setTargetAtTime(0.32*wl,n,0.15);
+      windF.frequency.setTargetAtTime(380+500*gu*Math.min(1,S.wind/15),n,0.2);
+      whG.gain.setTargetAtTime(Math.max(0,wl-0.35)*0.35*gu,n,0.2);
+      whF.frequency.setTargetAtTime(850+500*gu,n,0.2);
+      seaG.gain.setTargetAtTime(Math.min(0.5,0.08+0.1*S.Hs)*(0.6+0.4*Math.min(1,Math.abs(prevBow)/(S.Hs*0.5+0.01))),n,0.2);
+    }
+    const dx=Math.sin(2*Math.PI*simT/M.Tn);
+    const ampPct=Math.min(42,8+M.roll*7);
+    const dot=$('dot');dot.style.transform='translateX('+(dx*ampPct*(dot.parentNode.clientWidth/100)).toFixed(1)+'px)';
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
